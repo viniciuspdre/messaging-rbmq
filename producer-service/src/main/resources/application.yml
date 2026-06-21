@@ -1,0 +1,16 @@
+spring:
+  main:
+    web-application-type: none
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+bank:
+  name: ${BANK_NAME:BankA}
+  publish-interval-ms: ${PUBLISH_INTERVAL_MS:2500}
+
+rabbitmq:
+  exchange: pix.transactions.exchange
+  routing-key: pix.transaction.created
