@@ -1,0 +1,23 @@
+spring:
+  main:
+    web-application-type: none
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+
+audit:
+  log:
+    path: ${AUDIT_LOG_PATH:/app/logs/audit.log}
+
+rabbitmq:
+  exchange: pix.transactions.exchange
+  queue: audit.logging.queue
+  routing-key: pix.transaction.created
+  dlx: pix.transactions.dlx
+  dlq: audit.logging.dlq
+  dl-routing-key: audit.logging.failed
