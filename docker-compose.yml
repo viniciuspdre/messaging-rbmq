@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  bank-a:
+    build: ./producer-service
+    container_name: bank-a
+    environment:
+      BANK_NAME: BankA
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      PUBLISH_INTERVAL_MS: 2500
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
+
+  bank-b:
+    build: ./producer-service
+    container_name: bank-b
+    environment:
+      BANK_NAME: BankB
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      PUBLISH_INTERVAL_MS: 2500
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
+
+  bank-c:
+    build: ./producer-service
+    container_name: bank-c
+    environment:
+      BANK_NAME: BankC
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      PUBLISH_INTERVAL_MS: 2500
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
+
+  bank-d:
+    build: ./producer-service
+    container_name: bank-d
+    environment:
+      BANK_NAME: BankD
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      PUBLISH_INTERVAL_MS: 2500
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
+
+  audit-logging-service:
+    build: ./audit-logging-service
+    container_name: audit-logging-service
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      AUDIT_LOG_PATH: /app/logs/audit.log
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: on-failure
