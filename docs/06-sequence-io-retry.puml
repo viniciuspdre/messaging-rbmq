@@ -1,0 +1,31 @@
+@startuml 06-sequence-io-retry
+title Fluxo de Falha — Erro de I/O Temporário → Requeue
+
+participant "audit.logging.queue" as QUEUE
+participant "AuditLogConsumer" as CONSUMER
+participant "AuditLogWriter" as WRITER
+participant "audit.log" as FILE
+
+QUEUE -> CONSUMER : entrega mensagem (delivery-tag = N)
+CONSUMER -> CONSUMER : validateMessage() OK
+CONSUMER -> WRITER : writer.write(...)
+WRITER -> FILE : BufferedWriter.write() ← FALHA (disco cheio, permissão, etc.)
+FILE --> WRITER : IOException
+WRITER --> CONSUMER : throws IOException
+CONSUMER -> CONSUMER : catch(IOException e)\nlog.error("I/O failure... requeueing")
+CONSUMER -> QUEUE : channel.basicNack(deliveryTag, false, requeue=true)
+
+note over QUEUE
+  Mensagem volta para o topo da fila.
+  Será reentre gue ao consumer quando ele
+  estiver pronto para processar novamente.
+  ATENÇÃO: não há limite máximo de tentativas
+  nesta implementação — melhoria futura.
+end note
+
+QUEUE -> CONSUMER : reentrega (mesmo delivery-tag ou novo)
+CONSUMER -> WRITER : writer.write(...) — nova tentativa
+WRITER -> FILE : escrita bem-sucedida
+CONSUMER -> QUEUE : channel.basicAck(deliveryTag, false)
+
+@enduml

@@ -1,0 +1,14 @@
+@startuml 01-context
+!define C4Context https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!includeurl C4Context
+
+title Sistema de Mensageria do Banco Central — Diagrama de Contexto (C4 Level 1)
+
+Person(extBankOp, "Operação Bancária", "Banco participante que origina transações PIX simuladas")
+System(cbms, "Central Bank Messaging System", "Recebe eventos de transação PIX publicados pelos bancos e os processa de forma assíncrona para auditoria")
+SystemDb_Ext(auditFile, "audit.log", "Arquivo de registro persistido em volume Docker")
+
+Rel(extBankOp, cbms, "Publica evento de transação PIX", "AMQP / JSON")
+Rel(cbms, auditFile, "Persiste entrada de auditoria", "Append to file")
+
+@enduml

@@ -1,0 +1,67 @@
+@startuml 08-component-audit
+title Componentes Internos — Audit Logging Service
+
+package "com.auditlogging" {
+
+    class AuditLoggingApplication <<@SpringBootApplication>> {
+        + main(args: String[])
+        --
+        Sobe como aplicação sem servidor web.
+        @RabbitListener é ativado após contexto pronto.
+    }
+
+    class RabbitMqConfig <<@Configuration>> {
+        - exchange, queue, routingKey : String
+        - dlx, dlq, dlRoutingKey : String
+        --
+        + pixTransactionsExchange() : DirectExchange
+        + deadLetterExchange() : DirectExchange
+        + auditLoggingQueue() : Queue
+          (x-dead-letter-exchange = dlx)
+          (x-dead-letter-routing-key = dlRoutingKey)
+        + deadLetterQueue() : Queue
+        + auditQueueBinding() : Binding
+        + dlqBinding() : Binding
+        + messageConverter() : Jackson2JsonMessageConverter
+        + rabbitListenerContainerFactory(...) : SimpleRabbitListenerContainerFactory
+          AcknowledgeMode = MANUAL
+          ErrorHandler = ConditionalRejectingErrorHandler
+    }
+
+    class AuditLogConsumer <<@Component\n@RabbitListener>> {
+        - writer : AuditLogWriter
+        + consume(message, channel, deliveryTag) : void
+        - validateMessage(message) : void
+        --
+        ACK após escrita OK
+        NACK requeue=false → DLQ (IllegalArgumentException)
+        NACK requeue=true  → retry (IOException)
+    }
+
+    class AuditLogWriter <<@Component>> {
+        - auditLogPath : String
+        - FORMATTER : DateTimeFormatter
+        + write(txId, timestamp, sender, receiver, amount) : void
+        --
+        Cria diretório pai se não existir.
+        FileWriter(path, append=true)
+        Formato: [yyyy-MM-dd HH:mm:ss] txId | sender | receiver | amount
+    }
+
+    record TransactionMessage {
+        transactionId : String
+        timestamp : LocalDateTime
+        senderBank : String
+        receiverBank : String
+        senderAccount : String
+        receiverAccount : String
+        amount : BigDecimal
+    }
+
+    AuditLoggingApplication --> RabbitMqConfig : configura contexto
+    AuditLogConsumer --> AuditLogWriter : delega escrita
+    AuditLogConsumer ..> TransactionMessage : recebe via @RabbitListener
+    AuditLogWriter ..> TransactionMessage : extrai campos
+}
+
+@enduml

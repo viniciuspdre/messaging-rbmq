@@ -1,0 +1,27 @@
+@startuml 02-containers
+!define C4Container https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!includeurl C4Container
+
+title Sistema de Mensageria do Banco Central — Diagrama de Containers (C4 Level 2)
+
+System_Boundary(producers, "Producer Service (imagem compartilhada)") {
+    Container(bankA, "bank-a", "Java 21 / Spring Boot 3", "Publica transações PIX a cada 2,5s\nBANK_NAME=BankA")
+    Container(bankB, "bank-b", "Java 21 / Spring Boot 3", "Publica transações PIX a cada 2,5s\nBANK_NAME=BankB")
+    Container(bankC, "bank-c", "Java 21 / Spring Boot 3", "Publica transações PIX a cada 2,5s\nBANK_NAME=BankC")
+    Container(bankD, "bank-d", "Java 21 / Spring Boot 3", "Publica transações PIX a cada 2,5s\nBANK_NAME=BankD")
+}
+
+Container(rabbit, "RabbitMQ 3-management", "Message Broker", "Recebe eventos no exchange e roteia para filas.\nUI disponível em localhost:15672")
+
+Container(audit, "audit-logging-service", "Java 21 / Spring Boot 3", "Consome mensagens com ACK manual.\nEscreve cada transação no audit.log")
+
+ContainerDb(log, "audit.log", "Arquivo de texto", "Volume Docker ./logs montado em /app/logs.\nFormato: [timestamp] txId | sender | receiver | amount")
+
+Rel(bankA, rabbit, "Publica", "AMQP exchange: pix.transactions.exchange\nrouting-key: pix.transaction.created")
+Rel(bankB, rabbit, "Publica", "AMQP")
+Rel(bankC, rabbit, "Publica", "AMQP")
+Rel(bankD, rabbit, "Publica", "AMQP")
+Rel(rabbit, audit, "Entrega mensagem", "AMQP queue: audit.logging.queue")
+Rel(audit, log, "Append", "FileWriter")
+
+@enduml

@@ -1,0 +1,33 @@
+@startuml 05-sequence-dlq
+title Fluxo de Falha — Mensagem Inválida → Dead-Letter Queue
+
+participant "TransactionPublisher" as PUB
+participant "pix.transactions.exchange" as EXCHANGE
+participant "audit.logging.queue" as QUEUE
+participant "AuditLogConsumer" as CONSUMER
+participant "pix.transactions.dlx" as DLX
+participant "audit.logging.dlq" as DLQ
+
+PUB -> EXCHANGE : publica mensagem malformada\n(ex: amount negativo ou campo ausente)
+EXCHANGE -> QUEUE : roteamento normal
+QUEUE -> CONSUMER : entrega mensagem
+
+alt JSON malformado (antes de chegar ao consumer)
+    note over CONSUMER : ConditionalRejectingErrorHandler\nrejeita automaticamente
+    CONSUMER -> QUEUE : NACK sem requeue (automático)
+else Dados de negócio inválidos (validateMessage)
+    CONSUMER -> CONSUMER : validateMessage() lança IllegalArgumentException
+    CONSUMER -> QUEUE : channel.basicNack(deliveryTag, false, requeue=false)
+end
+
+QUEUE -> DLX : x-dead-letter-exchange configurado\nna fila principal
+DLX -> DLQ : routing-key: audit.logging.failed
+
+note over DLQ
+  Mensagem retida na DLQ para inspeção.
+  Acessível via RabbitMQ Management UI:
+  http://localhost:15672
+  Fila: audit.logging.dlq
+end note
+
+@enduml

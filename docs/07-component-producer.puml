@@ -1,0 +1,59 @@
+@startuml 07-component-producer
+title Componentes Internos — Producer Service
+
+package "com.bankproducer" {
+
+    class TransactionProducerApplication <<@SpringBootApplication\n@CommandLineRunner>> {
+        - bankName : String
+        - publishIntervalMs : long
+        + main(args: String[])
+        + run(args: String[]) : void
+        --
+        Loop: generate → publish → sleep(2500ms)
+        Trata InterruptedException e erros de conexão
+    }
+
+    class RabbitMqConfig <<@Configuration>> {
+        + EXCHANGE : String = "pix.transactions.exchange"
+        + pixTransactionsExchange() : DirectExchange
+        + messageConverter() : Jackson2JsonMessageConverter
+        + rabbitTemplate(...) : RabbitTemplate
+    }
+
+    class TransactionGenerator <<@Component>> {
+        - bankName : String (via @Value)
+        - ALL_BANKS : List<String>
+        + generate() : TransactionMessage
+        --
+        Gera UUID curto como transactionId
+        Escolhe receiverBank != senderBank
+        Gera amount entre R$ 10 e R$ 10.000
+    }
+
+    class TransactionPublisher <<@Component>> {
+        - rabbitTemplate : RabbitTemplate
+        - exchange : String
+        - routingKey : String
+        + publish(message: TransactionMessage) : void
+        --
+        rabbitTemplate.convertAndSend(exchange, routingKey, message)
+    }
+
+    record TransactionMessage {
+        transactionId : String
+        timestamp : LocalDateTime
+        senderBank : String
+        receiverBank : String
+        senderAccount : String
+        receiverAccount : String
+        amount : BigDecimal
+    }
+
+    TransactionProducerApplication --> TransactionGenerator : usa
+    TransactionProducerApplication --> TransactionPublisher : usa
+    TransactionPublisher --> RabbitMqConfig : injeta RabbitTemplate
+    TransactionGenerator ..> TransactionMessage : cria
+    TransactionPublisher ..> TransactionMessage : recebe
+}
+
+@enduml

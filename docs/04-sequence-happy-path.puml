@@ -1,0 +1,25 @@
+@startuml 04-sequence-happy-path
+title Fluxo Principal (Happy Path) — Publicação e Consumo com ACK
+
+participant "TransactionGenerator" as GEN
+participant "TransactionPublisher" as PUB
+participant "RabbitMQ\npix.transactions.exchange" as EXCHANGE
+participant "audit.logging.queue" as QUEUE
+participant "AuditLogConsumer" as CONSUMER
+participant "AuditLogWriter" as WRITER
+participant "audit.log" as FILE
+
+GEN -> GEN : generate()\nUUID + timestamp + amount aleatório
+GEN -> PUB : TransactionMessage
+PUB -> EXCHANGE : rabbitTemplate.convertAndSend(\n  exchange, routingKey, message)
+EXCHANGE -> QUEUE : roteamento por routing-key\npix.transaction.created
+QUEUE -> CONSUMER : entrega mensagem\n(AMQP delivery-tag alocado)
+CONSUMER -> CONSUMER : validateMessage(message)\ncampos obrigatórios + amount > 0
+CONSUMER -> WRITER : writer.write(\n  txId, timestamp, sender, receiver, amount)
+WRITER -> FILE : BufferedWriter append mode\n"[timestamp] txId | sender | receiver | amount\n"
+FILE --> WRITER : sucesso
+WRITER --> CONSUMER : retorno OK
+CONSUMER -> QUEUE : channel.basicAck(deliveryTag, false)
+QUEUE --> CONSUMER : mensagem removida da fila
+
+@enduml

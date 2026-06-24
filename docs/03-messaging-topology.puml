@@ -1,0 +1,42 @@
+@startuml 03-messaging-topology
+skinparam rectangle {
+    BackgroundColor<<exchange>> #F4D03F
+    BackgroundColor<<queue>>    #5DADE2
+    BackgroundColor<<dlx>>      #E74C3C
+    BackgroundColor<<dlq>>      #C0392B
+    BorderColor Black
+    FontSize 13
+}
+
+title Topologia de Mensageria RabbitMQ
+
+package "Producers (bank-a / bank-b / bank-c / bank-d)" as P {
+    component [TransactionPublisher] as pub
+}
+
+rectangle "pix.transactions.exchange\n(Direct, Durable)" <<exchange>> as EXCHANGE
+
+rectangle "audit.logging.queue\n(Durable, x-dead-letter-exchange=pix.transactions.dlx)" <<queue>> as QUEUE
+
+component [AuditLogConsumer\n(Manual ACK)] as CONSUMER
+
+rectangle "pix.transactions.dlx\n(Direct, Durable)" <<dlx>> as DLX
+
+rectangle "audit.logging.dlq\n(Durable)" <<dlq>> as DLQ
+
+file "audit.log" as LOGFILE
+
+pub --> EXCHANGE : routing-key:\npix.transaction.created
+EXCHANGE --> QUEUE : binding:\npix.transaction.created
+QUEUE --> CONSUMER
+CONSUMER --> LOGFILE : ACK ✔ (escreve)
+CONSUMER --> DLX     : NACK sem requeue\n(dado inválido)
+DLX --> DLQ          : routing-key:\naudit.logging.failed
+
+note right of CONSUMER
+  Falha de I/O temporária:
+  NACK com requeue=true
+  (volta para QUEUE)
+end note
+
+@enduml
